@@ -10,6 +10,7 @@ import time as _time
 import functools
 import syslog
 import ctypes
+import os
 
 have_streaming_load = have_ijson = have_jsaone = False
 try:
@@ -71,13 +72,15 @@ class KeyTypeChangedError(base_exception_class):
 
 class RedisWrapper(redis.Redis):
     def __init__(self, *args, **kwargs):
-        kwargs['username'] = 'admin'
-        kwargs['password'] = read_from_file('/etc/shadow_redis_dir/shadow_redis_admin')
-        redis_shadow_tls_ca="/etc/shadow_redis_dir/certs_redis/ca.crt"
-        kwargs['ssl'] = True
-        kwargs['ssl_cert_reqs'] = None
-        kwargs['ssl_ca_certs'] = redis_shadow_tls_ca
-        super(RedisWrapper, self).__init__(*args, **kwargs)
+        # When Redis ACL is enabled, the password is stored in the file /etc/shadow_redis_dir/shadow_redis_admin
+        if os.path.exists('/etc/shadow_redis_dir/shadow_redis_admin'):
+            kwargs['username'] = 'admin'
+            kwargs['password'] = read_from_file('/etc/shadow_redis_dir/shadow_redis_admin')
+            redis_shadow_tls_ca="/etc/shadow_redis_dir/certs_redis/ca.crt"
+            kwargs['ssl'] = True
+            kwargs['ssl_cert_reqs'] = None
+            kwargs['ssl_ca_certs'] = redis_shadow_tls_ca
+            super(RedisWrapper, self).__init__(*args, **kwargs)
 
         version = [int(part) for part in self.info()['redis_version'].split('.')]
         self.have_pttl = version >= [2, 6]
